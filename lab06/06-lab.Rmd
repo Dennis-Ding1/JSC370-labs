@@ -5,19 +5,6 @@ output:
   pdf_document: default
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(
-  echo = TRUE,    # Show code
-  eval = TRUE,    # Run code
-  include = TRUE, # Include output
-  warning = TRUE, # Show warnings
-  message = TRUE, # Show messages
-  error = TRUE    # Show errors instead of stopping
-)
-
-```
-
-
 # Learning goals
 
 - Use a real world API to make queries and process the data.
