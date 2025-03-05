@@ -1,9 +1,5 @@
----
-title: "Lab 9 - HPC"
-output: github_document
-html_document: default
-link-citations: yes
----
+Lab 9 - HPC
+================
 
 # Learning goals
 
@@ -13,40 +9,44 @@ In this lab, you are expected to practice the following skills:
 - Practice with the parallel package.
 - Use Rscript to submit jobs.
 
-```{r eval=FALSE, echo=FALSE}
-# install any missing packages
-install.packages("microbenchmark")
-```
-
 ## Problem 1
 
-Give yourself a few minutes to think about what you learned about parallelization. List three
-examples of problems that you believe may be solved using parallel computing,
-and check for packages on the HPC CRAN task view that may be related to it.
+Give yourself a few minutes to think about what you learned about
+parallelization. List three examples of problems that you believe may be
+solved using parallel computing, and check for packages on the HPC CRAN
+task view that may be related to it.
 
 - cross-validation in machine learning
-- caret -> supports parallel cross-validation with `doParallel`
-- mlr, foreach, doParallel -> for parallel model training
+
+- caret -\> supports parallel cross-validation with `doParallel`
+
+- mlr, foreach, doParallel -\> for parallel model training
 
 - bootstrapping
-- boot -> for bootstrapping
-- parallel -> parallelize resampling
+
+- boot -\> for bootstrapping
+
+- parallel -\> parallelize resampling
 
 - markov chain monte carlo
-- parallel
-- rstan -> for stan for bayesian modeling
-- RcppParallel -> parallel mcmc sampling
-- nimle -> customize bayesian inference
 
+- parallel
+
+- rstan -\> for stan for bayesian modeling
+
+- RcppParallel -\> parallel mcmc sampling
+
+- nimle -\> customize bayesian inference
 
 ## Problem 2: Pre-parallelization
 
-The following functions can be written to be more efficient without using
-`parallel`:
+The following functions can be written to be more efficient without
+using `parallel`:
 
-1. This function generates a `n x k` dataset with all its entries having a Poisson distribution with mean `lambda`.
+1.  This function generates a `n x k` dataset with all its entries
+    having a Poisson distribution with mean `lambda`.
 
-```{r p2-fun1}
+``` r
 fun1 <- function(n = 100, k = 4, lambda = 4) {
   x <- NULL
   
@@ -67,17 +67,20 @@ microbenchmark::microbenchmark(
   fun1alt(100),
   unit="ns"
 )
-
 ```
+
+    ## Unit: nanoseconds
+    ##          expr    min       lq      mean   median     uq     max neval
+    ##     fun1(100) 166802 198850.5 305310.01 231151.5 244551 8035102   100
+    ##  fun1alt(100)   9601  10701.0  21705.99  12101.0  13901  897001   100
 
 How much faster?
 
 About 408306.06/26082.01 = 15.65 times faster.
 
-
 2.  Find the column max (hint: Checkout the function `max.col()`).
 
-```{r p2-fun2}
+``` r
 # Data Generating Process (10 x 10,000 matrix)
 set.seed(1234)
 x <- matrix(rnorm(1e4), nrow=10)
@@ -100,26 +103,34 @@ bench <- microbenchmark::microbenchmark(
 )
 ```
 
-```{r}
+``` r
 plot(bench)
+```
+
+![](lab09_files/figure-gfm/unnamed-chunk-2-1.png)<!-- -->
+
+``` r
 ggplot2::autoplot(bench) +
   ggplot2::theme_minimal()
 ```
 
+![](lab09_files/figure-gfm/unnamed-chunk-2-2.png)<!-- -->
 
 ## Problem 3: Parallelize everything
 
-We will now turn our attention to non-parametric 
+We will now turn our attention to non-parametric
 [bootstrapping](https://en.wikipedia.org/wiki/Bootstrapping_(statistics)).
-Among its many uses, non-parametric bootstrapping allow us to obtain confidence
-intervals for parameter estimates without relying on parametric assumptions.
+Among its many uses, non-parametric bootstrapping allow us to obtain
+confidence intervals for parameter estimates without relying on
+parametric assumptions.
 
-The main assumption is that we can approximate many experiments by resampling
-observations from our original dataset, which reflects the population. 
+The main assumption is that we can approximate many experiments by
+resampling observations from our original dataset, which reflects the
+population.
 
 This function implements the non-parametric bootstrap:
 
-```{r p3-boot-fun}
+``` r
 my_boot <- function(dat, stat, R, ncpus = 1L) {
   # Getting the random indices
   n <- nrow(dat)
@@ -161,9 +172,10 @@ my_boot <- function(dat, stat, R, ncpus = 1L) {
 }
 ```
 
-1. Use the previous pseudocode, and make it work with `parallel`. Here is just an example for you to try:
+1.  Use the previous pseudocode, and make it work with `parallel`. Here
+    is just an example for you to try:
 
-```{r p3-test-boot}
+``` r
 library(parallel)
 # Bootstrap of a linear regression model
 my_stat <- function(d) coef(lm(y~x, data = d))
@@ -178,41 +190,70 @@ y <- x*5 + rnorm(n)
 # Check if we get something similar as lm
 ans0 <- confint(lm (y~x))
 cat("OLS CI \n")
-print(ans0)
+```
 
+    ## OLS CI
+
+``` r
+print(ans0)
+```
+
+    ##                  2.5 %     97.5 %
+    ## (Intercept) -0.1379033 0.04797344
+    ## x            4.8650100 5.04883353
+
+``` r
 ans1 <- my_boot(dat = data.frame(x, y), my_stat, R=R, ncpus = 4)
 qs <- c(.025, .975)
 cat("Bootstrap CI \n")
-print(t(apply(ans1, 2, quantile, probs = qs)))
-
 ```
 
-2. Check whether your version actually goes faster than the non-parallel version:
+    ## Bootstrap CI
 
-```{r benchmark-problem3}
+``` r
+print(t(apply(ans1, 2, quantile, probs = qs)))
+```
+
+    ##                   2.5%      97.5%
+    ## (Intercept) -0.1386903 0.04856752
+    ## x            4.8685162 5.04351239
+
+2.  Check whether your version actually goes faster than the
+    non-parallel version:
+
+``` r
 # your code here
 detectCores()
+```
 
+    ## [1] 16
+
+``` r
 # non-parallel 1 core
 system.time(my_boot(dat = data.frame(x, y), my_stat, R = 4000, ncpus = 1L))
+```
 
+    ## 用户 系统 流逝 
+    ## 0.03 0.00 1.85
+
+``` r
 # parallel 4 core
 system.time(my_boot(dat = data.frame(x, y), my_stat, R = 4000, ncpus = 4L))
-
 ```
+
+    ## 用户 系统 流逝 
+    ## 0.04 0.00 1.03
 
 4 cores has smaller elapsed time.
 
 ## Problem 4: Compile this markdown document using Rscript
 
-Once you have saved this Rmd file, try running the following command
-in your terminal:
+Once you have saved this Rmd file, try running the following command in
+your terminal:
 
-```bash
+``` bash
 Rscript --vanilla -e 'rmarkdown::render("D:/Documents/U of T 大三/JSC370/JSC370-labs/lab09/lab09.Rmd")' &
 ```
 
-Where `[full-path-to-your-Rmd-file.Rmd]` should be replace with the full path to
-your Rmd file... :).
-
-
+Where `[full-path-to-your-Rmd-file.Rmd]` should be replace with the full
+path to your Rmd file… :).
